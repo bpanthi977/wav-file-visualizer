@@ -107,5 +107,45 @@
   (with-open-file (stream *file* :element-type 'unsigned-byte)
 	 (read-value 'riff stream)))
 
+;;
+;; PCM audio player 
+;;
 
-	
+
+(defclass byte-source (harmony:buffer-source cl-mixed:buffer-source)
+  ((data :accessor data :initarg :data)
+   (pos :accessor pos :initform 0)))
+
+(defmethod harmony:seek-to-sample ((source byte-source) position)
+  (setf (pos source) position))
+
+(defmethod harmony:sample-count ((source byte-source))
+  (1- (length (data source))))
+
+(defmethod harmony:process ((source byte-source) samples)
+  (let* ((buffers (cl-mixed:outputs source))
+		 (position (pos source))
+		 (data (data source)))
+	(loop for i from position below (+ position samples)
+		  for j from 0 
+		  for sample = (coerce (/ (aref data i) 255) 'single-float) do
+			(loop for buffer across buffers do
+			  (setf (cffi:mem-aref (cl-mixed:data buffer) :float j) sample))
+		  finally (setf (pos source) (+ position samples)))))
+
+(defun select-channel (stereo-data channel)
+  (destructuring-bind (channels samples) (array-dimensions stereo-data)
+	(if (< channels channel)
+		(error "Channel ~a doesn't exist in audio data" channel))
+	(make-array samples
+				:element-type (array-element-type stereo-data)
+				:displaced-to stereo-data 
+				:displaced-index-offset (* channel samples))))
+
+(defun play-sound (data) 
+  (harmony-simple:initialize)
+  (harmony-simple:play 'byte-source :music :data (select-channel data 0)))
+    
+;;
+;; PLOT Wave D
+;;
