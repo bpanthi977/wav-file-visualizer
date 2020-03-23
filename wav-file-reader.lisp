@@ -58,13 +58,28 @@
 		   (declare (ignore out value))
 		   (error "Writing bytes not implemented")))
 
+(define-binary-type 2channels-8bit-data (size)
+  (:reader (in)
+		   (let ((data (make-array (list 2 size) :element-type '(unsigned-byte 8))))
+			 (loop for i from 0 to (1- size) do 
+			   (setf (aref data 0 i) (read-byte in))
+			   (setf (aref data 1 i) (read-byte in)))
+			 data))
+  (:writer (out value)
+		   (loop for i from 0 to (1- size) do 
+			 (loop for c from 0 to 1 do
+			   (write-byte (aref value c i) out)))))
+
 (define-binary-type multichannel-data (channels size reader-writer-type array-element-type)
   (:reader (in)
-		   (let ((data (make-array (list channels size) :element-type array-element-type)))
-			 (loop for i from 0 to (1- size) do 
+		   (if (and (= channels 2)
+					(equal array-element-type '(unsigned-byte 8)))
+			   (read-value '2channels-8bit-data in :size size)
+			   (let ((data (make-array (list channels size) :element-type array-element-type)))
+				 (loop for i from 0 to (1- size) do 
 				   (loop for c from 0 to (1- channels) do
 					 (setf (aref data c i) (read-value reader-writer-type in))))
-			 data))
+				 data)))
   (:writer (out value)
 		   (loop for i from 0 to (1- size) do 
 			 (loop for c from 0 to (1- channels) do
