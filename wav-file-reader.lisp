@@ -5,6 +5,10 @@
 (defparameter *file* #p"E:/Development/samples/sample.wav")
 
 
+;;
+;; WAV File Reader 
+;;
+ 
 (define-binary-type unsigned-integer-bigendian (bytes bits-per-byte)
   (:reader (in)
     (loop with value = 0
@@ -30,52 +34,78 @@
 		   (loop for byte across value do
 				 (write-byte byte out))))
 
-(define-binary-type signed-2bytes (size)
+(define-binary-type signed-integer-1byte ()
   (:reader (in)
-		   (loop with array = (make-array size :element-type '(signed-byte 16))
-				 for i from 0 to (1- size)
-				 for byte1 = (read-byte in)
-				 for byte2 = (read-byte in)
-				 for int = 0 do
-				   (setf (ldb (byte 8 8) int) byte1
-						 (ldb (byte 8 0) int) byte2)
-				   (if (= (ldb (byte 1 7) byte1) 1)
-				   	   (setf int (- int (expt 2 16))))
-				   (setf (aref array i) int)
-				 finally (return array)))
+		   (let ((byte (read-byte in)))
+			 (if (= (ldb (byte 1 7) byte) 1)
+				 (setf byte (- byte (expt 2 8))))
+			 byte))
   (:writer (out value)
-		   (loop for byte across value do
-			 (write-byte byte out))))
+		   (declare (ignore out value))
+		   (error "Writing bytes not implemented")))
+
+(define-binary-type signed-integer-2bytes ()
+  (:reader (in)
+		   (let ((byte1 (read-byte in))
+				 (byte2  (read-byte in))
+				 (int 0))
+			 (setf (ldb (byte 8 8) int) byte1
+				   (ldb (byte 8 0) int) byte2)
+			 (if (= (ldb (byte 1 7) byte1) 1)
+				 (setf int (- int (expt 2 16))))
+			 int))
+  (:writer (out value)
+		   (declare (ignore out value))
+		   (error "Writing bytes not implemented")))
+
+(define-binary-type multichannel-data (channels size reader-writer-type array-element-type)
+  (:reader (in)
+		   (let ((data (make-array (list channels size) :element-type array-element-type)))
+			 (loop for i from 0 to (1- size) do 
+				   (loop for c from 0 to (1- channels) do
+					 (setf (aref data c i) (read-value reader-writer-type in))))
+			 data))
+  (:writer (out value)
+		   (loop for i from 0 to (1- size) do 
+			 (loop for c from 0 to (1- channels) do
+			   (write-value reader-writer-type out (aref value c i))))))
+
 
 (define-tagged-binary-class
-	wav  ()
+	riff  ()
 	((riff-identifier (iso-8859-1-string :length 4))
-	 (size (ub4)) ;; file-size - 4
+	 (size (ub4)) 
 	 (wave-identifier (iso-8859-1-string :length 4)))
 	(:dispatch (if (and (string-equal riff-identifier "RIFF")
 						(string-equal wave-identifier "WAVE"))
-				   'wav-1
+				   'wav
 				   (error "File is not a WAVE file"))))
 
 
-
-
 (define-binary-class
-	wav-1 (wav)
+	wav (riff)
 	((format-chunk (iso-8859-1-string :length 4 ))
 	 (format-data-length (ub4))
 	 (type-of-format (ub2))
-	 (number-of-channel (ub2))
+	 (channels (ub2))
 	 (sample-rate (ub4))
 	 (bytes (ub4))
 	 (bytes-per-sample*channels (ub2))
 	 (bits-per-sample (ub2))
 	 (data-chunk-identifier (iso-8859-1-string :length 4))
 	 (data-size (ub4)) ;;file-size - 44
-	 (data (signed-2bytes :size (/ data-size 2)))))
-
-(defun tt()
+	 (data (multichannel-data :channels channels
+							  :size (/ data-size (/ bits-per-sample 8))
+							  :reader-writer-type (ecase (/ bits-per-sample channels)
+													(16 'signed-integer-2bytes)
+													(8 'ub1))
+							  :array-element-type (ecase (/ bits-per-sample channels)
+													(16 '(signed-byte 16))
+													 (8 '(unsigned-byte 8)))))))
+										  
+(defun read-wav()
   (with-open-file (stream *file* :element-type 'unsigned-byte)
-	 (read-value 'wav stream)))
+	 (read-value 'riff stream)))
+
 
 	
