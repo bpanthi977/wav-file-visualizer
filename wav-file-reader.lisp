@@ -8,16 +8,16 @@
 ;;
 ;; WAV File Reader 
 ;;
- 
+
 (define-binary-type unsigned-integer-bigendian (bytes bits-per-byte)
   (:reader (in)
-    (loop with value = 0
-       for low-bit from 0 to (* bits-per-byte (1- bytes)) by bits-per-byte do
-         (setf (ldb (byte bits-per-byte low-bit) value) (read-byte in))
-       finally (return value)))
+		   (loop with value = 0
+				 for low-bit from 0 to (* bits-per-byte (1- bytes)) by bits-per-byte do
+				   (setf (ldb (byte bits-per-byte low-bit) value) (read-byte in))
+				 finally (return value)))
   (:writer (out value)
-    (loop for low-bit from 0 to (* bits-per-byte (1- bytes)) by bits-per-byte
-       do (write-byte (ldb (byte bits-per-byte low-bit) value) out))))
+		   (loop for low-bit from 0 to (* bits-per-byte (1- bytes)) by bits-per-byte
+				 do (write-byte (ldb (byte bits-per-byte low-bit) value) out))))
 
 (define-binary-type ub1 () (unsigned-integer-bigendian :bytes 1 :bits-per-byte 8))
 (define-binary-type ub2 () (unsigned-integer-bigendian :bytes 2 :bits-per-byte 8))
@@ -32,7 +32,7 @@
 				 finally (return array)))
   (:writer (out value)
 		   (loop for byte across value do
-				 (write-byte byte out))))
+			 (write-byte byte out))))
 
 (define-binary-type signed-integer-1byte ()
   (:reader (in)
@@ -46,8 +46,8 @@
 
 (define-binary-type signed-integer-2bytes ()
   (:reader (in)
-		   (let ((byte1 (read-byte in))
-				 (byte2  (read-byte in))
+		   (let ((byte2 (read-byte in))
+				 (byte1  (read-byte in))
 				 (int 0))
 			 (setf (ldb (byte 8 8) int) byte1
 				   (ldb (byte 8 0) int) byte2)
@@ -110,43 +110,20 @@
 	 (data-chunk-identifier (iso-8859-1-string :length 4))
 	 (data-size (ub4)) ;;file-size - 44
 	 (data (multichannel-data :channels channels
-							  :size (/ data-size (/ bits-per-sample 8))
-							  :reader-writer-type (ecase (/ bits-per-sample channels)
+							  :size (/ data-size (/ bits-per-sample 8) channels)
+							  :reader-writer-type (ecase bits-per-sample
 													(16 'signed-integer-2bytes)
 													(8 'ub1))
-							  :array-element-type (ecase (/ bits-per-sample channels)
+							  :array-element-type (ecase bits-per-sample
 													(16 '(signed-byte 16))
-													 (8 '(unsigned-byte 8)))))))
-										  
+													(8 '(unsigned-byte 8)))))))
+
+(defparameter *data* nil)
 (defun read-wav()
   (with-open-file (stream *file* :element-type 'unsigned-byte)
-	 (read-value 'riff stream)))
-
-;;
-;; PCM audio player 
-;;
-
-
-(defclass byte-source (harmony:buffer-source cl-mixed:buffer-source)
-  ((data :accessor data :initarg :data)
-   (pos :accessor pos :initform 0)))
-
-(defmethod harmony:seek-to-sample ((source byte-source) position)
-  (setf (pos source) position))
-
-(defmethod harmony:sample-count ((source byte-source))
-  (1- (length (data source))))
-
-(defmethod harmony:process ((source byte-source) samples)
-  (let* ((buffers (cl-mixed:outputs source))
-		 (position (pos source))
-		 (data (data source)))
-	(loop for i from position below (+ position samples)
-		  for j from 0 
-		  for sample = (coerce (/ (aref data i) 255) 'single-float) do
-			(loop for buffer across buffers do
-			  (setf (cffi:mem-aref (cl-mixed:data buffer) :float j) sample))
-		  finally (setf (pos source) (+ position samples)))))
+	(let ((v (read-value 'riff stream)))
+	  (setf *data* (slot-value v 'data))
+	  v)))
 
 (defun select-channel (stereo-data channel)
   (destructuring-bind (channels samples) (array-dimensions stereo-data)
@@ -157,10 +134,7 @@
 				:displaced-to stereo-data 
 				:displaced-index-offset (* channel samples))))
 
-(defun play-sound (data) 
-  (harmony-simple:initialize)
-  (harmony-simple:play 'byte-source :music :data (select-channel data 0)))
-    
 ;;
-;; PLOT Wave D
+;; Display wave file 
 ;;
+(defun display (data)
