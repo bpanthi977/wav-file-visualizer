@@ -6,6 +6,6 @@
   :license  "Specify license here"
   :version "0.0.1"
   :serial t
-  :depends-on (#:com.gigamonkeys.binary-data #:harmony-simple #:lispbuilder-sdl)
+  :depends-on (#:com.gigamonkeys.binary-data #:lispbuilder-sdl)
   :components ((:file "package")
                (:file "wav-file-reader")))
