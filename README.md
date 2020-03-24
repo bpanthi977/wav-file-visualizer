@@ -13,13 +13,13 @@ This project
 
 ### Output 
 #### (test 0)
-[test 0 ](./images/test0.PNG)
+![](./images/test0.PNG)
 #### (test 1)
-[test 1 ](./images/test1.PNG)
+![](./images/test1.PNG)
 #### (test 2)
-[test 2 ](./images/test2.gif)
+![](./images/test2.gif)
 #### (test 3)
-[test 3 ](./images/test3.PNG)
+![](./images/test3.PNG)
 
 ## License
 
