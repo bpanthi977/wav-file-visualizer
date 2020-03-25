@@ -10,7 +10,7 @@
 ;;
 
 ;; Data type reader and writer definitions
-(define-binary-type unsigned-integer-bigendian (bytes bits-per-byte)
+(define-binary-type unsigned-integer-littleendian (bytes bits-per-byte)
   (:reader (in)
 		   (loop with value = 0
 				 for low-bit from 0 to (* bits-per-byte (1- bytes)) by bits-per-byte do
@@ -20,14 +20,14 @@
 		   (loop for low-bit from 0 to (* bits-per-byte (1- bytes)) by bits-per-byte
 				 do (write-byte (ldb (byte bits-per-byte low-bit) value) out))))
 
-(define-binary-type ub1 () (unsigned-integer-bigendian :bytes 1 :bits-per-byte 8))
-(define-binary-type ub2 () (unsigned-integer-bigendian :bytes 2 :bits-per-byte 8))
-(define-binary-type ub3 () (unsigned-integer-bigendian :bytes 3 :bits-per-byte 8))
-(define-binary-type ub4 () (unsigned-integer-bigendian :bytes 4 :bits-per-byte 8))
+(define-binary-type ub1 () (unsigned-integer-littleendian :bytes 1 :bits-per-byte 8))
+(define-binary-type ub2 () (unsigned-integer-littleendian :bytes 2 :bits-per-byte 8))
+(define-binary-type ub3 () (unsigned-integer-littleendian :bytes 3 :bits-per-byte 8))
+(define-binary-type ub4 () (unsigned-integer-littleendian :bytes 4 :bits-per-byte 8))
 
 (define-binary-type signed-integer-2bytes ()
   (:reader (in)
-		   ;; Byte ordering is big endian for WAV file 
+		   ;; Byte ordering is little endian for WAV file 
 		   (let ((byte2 (read-byte in))
 				 (byte1  (read-byte in))
 				 (int 0))
